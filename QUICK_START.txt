@@ -1,0 +1,102 @@
+╔══════════════════════════════════════════════════════════════╗
+║   🎮  GamePad Pro  v6.0  —  GOD MODE ULTIMATE               ║
+║   Merged from v4.0 + v5.0  |  Best of both worlds           ║
+╚══════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  QUICKEST START (Windows)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. Double-click  start.bat
+  2. Browser opens → http://localhost:3000/pc.html  (PC screen)
+  3. Scan QR code with your phone
+  4. Play!
+
+  If keys don't reach your game → right-click start.bat
+  → "Run as Administrator"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  MANUAL START
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  npm install
+  node server.js
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  PAGES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  http://localhost:3000/pc.html       → Open on gaming PC
+  http://<YOUR-IP>:3000/mobile.html   → Open on phone
+  http://localhost:3000/              → QR scan page
+  http://localhost:3000/landing.html  → Product landing page
+  http://localhost:3000/status        → Server status JSON
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  CONNECTION METHODS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  📶 WiFi      Same router as PC. Easiest method.
+  🔌 Ethernet  PC wired to router, phone on WiFi.
+  🔗 USB       Phone → Settings → Hotspot → USB Tethering
+               (zero lag, no internet required)
+  🔵 BT PAN   Bluetooth → Pair → Personal Area Network
+  🌐 Internet  Public tunnel URL printed on startup.
+               Works from ANY network/location.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  WHAT'S NEW IN v6.0 ULTIMATE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ✅ Multi-core cluster (one Node worker per CPU core)
+  ✅ Worker thread mouse accumulator at 120 Hz
+  ✅ WebSocket room relay (mobile ↔ pc roles, multi-session)
+  ✅ REST API  (/api/info, /api/key, /api/mouse, /status)
+  ✅ Full 16-button keymap configurable at runtime
+  ✅ Network interface detection (WiFi/Eth/USB/BT auto-detect)
+  ✅ localtunnel public URL on startup
+  ✅ QR as browser data-URL (shown in pc.html) + terminal QR
+  ✅ GOD MODE auto-restart loop in start.bat
+  ✅ Auto Node.js install via winget
+  ✅ Auto-opens browser on launch
+  ✅ 4 HTML pages: pc, mobile, index (QR), landing
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  DEFAULT KEY MAP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  D-Pad Up/Down/Left/Right → W S A D
+  Left Stick               → W S A D  (with sprint on threshold)
+  Right Stick              → Mouse move (120 Hz)
+  A (South)    → SPACE     B (East)   → ESC
+  X (West)     → F         Y (North)  → E
+  LB           → Q         RB         → R
+  LT           → SHIFT     RT         → CTRL
+  Start        → ENTER     Select     → TAB
+  LS Click     → Z         RS Click   → X
+  Fire (LT)    → Left mouse button
+  ADS (RT/L2)  → Right mouse button
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Phone can't connect?
+    → Make sure phone and PC are on the same WiFi
+    → Allow port 3000 through Windows Firewall when prompted
+    → Try USB Tethering if WiFi fails
+
+  Keys not working in game?
+    → Run start.bat as Administrator
+    → Install Visual Studio Build Tools for robotjs compile
+
+  Server not starting?
+    → Run:  npm install
+    → Then: node server.js
+
+  robotjs won't install?
+    → npm install @jitsi/robotjs
+    → Needs: Python 3, Visual Studio Build Tools (Windows)
+    → Mac/Linux: sudo npm install robotjs
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  VERSION HISTORY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  v6.0  Merged Ultimate — cluster + WS rooms + all features
+  v5.0  WebSocket rooms, pc.html + mobile.html, full keymap
+  v4.0  GOD MODE — cluster, localtunnel, all interfaces, QR
+  v3.x  Basic WiFi controller
+  v2.x  Early prototype
