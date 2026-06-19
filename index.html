@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GamePad Pro — God Mode</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #050508;
+    --bg2: #0d0d14;
+    --neon: #00ff88;
+    --neon2: #00aaff;
+    --red: #ff2255;
+    --gold: #ffcc00;
+    --text: #e0e0f0;
+    --dim: #5a5a7a;
+    --border: rgba(0,255,136,0.2);
+    --glow: 0 0 20px rgba(0,255,136,0.4);
+  }
+
+  html, body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* Animated background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+    animation: gridMove 20s linear infinite;
+    pointer-events: none;
+  }
+
+  @keyframes gridMove {
+    0% { background-position: 0 0; }
+    100% { background-position: 50px 50px; }
+  }
+
+  /* Scan line */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.05) 2px,
+      rgba(0,0,0,0.05) 4px
+    );
+    pointer-events: none;
+    z-index: 100;
+  }
+
+  header {
+    text-align: center;
+    padding: 60px 20px 20px;
+    position: relative;
+  }
+
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(2rem, 6vw, 4rem);
+    font-weight: 900;
+    letter-spacing: 4px;
+    color: var(--neon);
+    text-shadow: 0 0 30px rgba(0,255,136,0.8), 0 0 60px rgba(0,255,136,0.4);
+    animation: pulse 3s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { text-shadow: 0 0 30px rgba(0,255,136,0.8), 0 0 60px rgba(0,255,136,0.4); }
+    50% { text-shadow: 0 0 50px rgba(0,255,136,1), 0 0 100px rgba(0,255,136,0.6), 0 0 150px rgba(0,255,136,0.2); }
+  }
+
+  .tagline {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(0.7rem, 2vw, 1rem);
+    letter-spacing: 8px;
+    color: var(--dim);
+    margin-top: 8px;
+    text-transform: uppercase;
+  }
+
+  .god-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #ffcc00, #ff8800);
+    color: #000;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 3px;
+    padding: 4px 14px;
+    border-radius: 20px;
+    margin-top: 12px;
+    box-shadow: 0 0 20px rgba(255,204,0,0.5);
+    animation: goldPulse 2s ease-in-out infinite;
+  }
+
+  @keyframes goldPulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(255,204,0,0.5); }
+    50% { box-shadow: 0 0 40px rgba(255,204,0,0.8), 0 0 80px rgba(255,136,0,0.4); }
+  }
+
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 20px 80px;
+  }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 20px;
+    margin-bottom: 40px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+  }
+
+  .status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--neon);
+    box-shadow: 0 0 10px var(--neon);
+    animation: blink 1s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .status-text { color: var(--neon); }
+  .status-ip { margin-left: auto; color: var(--dim); font-size: 0.7rem; }
+
+  /* Mode cards */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    margin-bottom: 40px;
+  }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px;
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+    display: block;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at top left, rgba(0,255,136,0.05), transparent 60%);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .card:hover { transform: translateY(-4px); border-color: var(--neon); }
+  .card:hover::before { opacity: 1; }
+
+  .card-icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    display: block;
+    filter: drop-shadow(0 0 10px rgba(0,255,136,0.5));
+  }
+
+  .card h2 {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--neon);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+  }
+
+  .card p {
+    color: var(--dim);
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  .card-arrow {
+    position: absolute;
+    bottom: 20px;
+    right: 24px;
+    font-family: 'Orbitron', monospace;
+    color: var(--neon);
+    font-size: 1.2rem;
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: opacity 0.2s, transform 0.2s;
+  }
+
+  .card:hover .card-arrow { opacity: 1; transform: translateX(0); }
+
+  .card.pc-card { border-color: rgba(0,170,255,0.2); }
+  .card.pc-card::before { background: radial-gradient(ellipse at top left, rgba(0,170,255,0.05), transparent 60%); }
+  .card.pc-card:hover { border-color: var(--neon2); }
+  .card.pc-card h2 { color: var(--neon2); }
+  .card.pc-card .card-arrow { color: var(--neon2); }
+
+  /* QR Section */
+  .qr-section {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 36px;
+    display: flex;
+    gap: 40px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .qr-wrap {
+    flex-shrink: 0;
+  }
+
+  #qr-img {
+    width: 180px;
+    height: 180px;
+    border-radius: 12px;
+    border: 2px solid var(--border);
+    display: block;
+    image-rendering: pixelated;
+  }
+
+  .qr-placeholder {
+    width: 180px;
+    height: 180px;
+    border-radius: 12px;
+    border: 2px dashed var(--dim);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--dim);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    gap: 10px;
+    animation: rotate 2s linear infinite;
+  }
+
+  @keyframes rotate { to { border-color: var(--neon); } }
+
+  .qr-info { flex: 1; min-width: 220px; }
+
+  .qr-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 1rem;
+    color: var(--neon);
+    letter-spacing: 3px;
+    margin-bottom: 16px;
+  }
+
+  .qr-steps { list-style: none; }
+  .qr-steps li {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+    font-size: 0.95rem;
+    color: var(--text);
+  }
+
+  .step-num {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--neon);
+    color: var(--neon);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .url-display {
+    margin-top: 20px;
+    background: rgba(0,255,136,0.05);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem;
+    color: var(--neon);
+    word-break: break-all;
+    letter-spacing: 1px;
+  }
+
+  /* Features */
+  .features {
+    margin-top: 40px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+  }
+
+  .feat {
+    background: var(--bg2);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .feat-icon { font-size: 1.8rem; margin-bottom: 8px; }
+  .feat-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    color: var(--neon);
+    margin-bottom: 4px;
+  }
+  .feat-desc { font-size: 0.8rem; color: var(--dim); }
+
+  /* robotjs badge */
+  .robot-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 1px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-top: 16px;
+  }
+
+  .robot-badge.active { background: rgba(0,255,136,0.1); border: 1px solid var(--neon); color: var(--neon); }
+  .robot-badge.inactive { background: rgba(255,34,85,0.1); border: 1px solid rgba(255,34,85,0.4); color: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">GAMEPAD PRO</div>
+  <div class="tagline">Mobile · PC · Cross Platform</div>
+  <div class="god-badge">⚡ GOD MODE v5.0</div>
+</header>
+
+<main>
+  <div class="status-bar">
+    <div class="status-dot"></div>
+    <span class="status-text">SERVER ONLINE</span>
+    <span class="status-ip" id="ip-display">Connecting...</span>
+  </div>
+
+  <div class="cards">
+    <a href="mobile.html" class="card">
+      <span class="card-icon">📱</span>
+      <h2>MOBILE CONTROLLER</h2>
+      <p>Open on your phone. Touch D-pad, buttons, and analog sticks to control your PC games wirelessly.</p>
+      <span class="card-arrow">→</span>
+    </a>
+    <a href="pc.html" class="card pc-card">
+      <span class="card-icon">🖥️</span>
+      <h2>PC RECEIVER</h2>
+      <p>Open on your gaming PC. Receives all controller inputs and maps them to keyboard/mouse actions.</p>
+      <span class="card-arrow">→</span>
+    </a>
+  </div>
+
+  <div class="qr-section">
+    <div class="qr-wrap">
+      <div class="qr-placeholder" id="qr-placeholder">
+        <div>⌛</div>
+        <div>LOADING QR</div>
+      </div>
+      <img id="qr-img" style="display:none;" alt="QR Code">
+    </div>
+    <div class="qr-info">
+      <div class="qr-title">SCAN TO CONNECT PHONE</div>
+      <ul class="qr-steps">
+        <li><span class="step-num">1</span> Make sure phone & PC are on the same WiFi</li>
+        <li><span class="step-num">2</span> Open the PC Receiver page on this computer</li>
+        <li><span class="step-num">3</span> Scan the QR code with your phone camera</li>
+        <li><span class="step-num">4</span> Start gaming with zero lag! ⚡</li>
+      </ul>
+      <div class="url-display" id="mobile-url">Loading...</div>
+      <div id="robot-status"></div>
+    </div>
+  </div>
+
+  <div class="features">
+    <div class="feat"><div class="feat-icon">⚡</div><div class="feat-name">ZERO LAG</div><div class="feat-desc">WebSocket direct relay</div></div>
+    <div class="feat"><div class="feat-icon">🎮</div><div class="feat-name">FULL BUTTONS</div><div class="feat-desc">D-pad, ABXY, Sticks, Triggers</div></div>
+    <div class="feat"><div class="feat-icon">🕹️</div><div class="feat-name">ANALOG STICKS</div><div class="feat-desc">Smooth joystick control</div></div>
+    <div class="feat"><div class="feat-icon">📳</div><div class="feat-name">HAPTIC</div><div class="feat-desc">Vibration on press</div></div>
+    <div class="feat"><div class="feat-icon">🔄</div><div class="feat-name">AUTO RECONNECT</div><div class="feat-desc">Never drops connection</div></div>
+    <div class="feat"><div class="feat-icon">🗺️</div><div class="feat-name">KEY MAPPING</div><div class="feat-desc">Remap any button</div></div>
+  </div>
+</main>
+
+<script>
+  async function init() {
+    try {
+      const res = await fetch('/api/info');
+      const data = await res.json();
+      
+      document.getElementById('ip-display').textContent = `http://${data.ip}:${data.port}`;
+      document.getElementById('mobile-url').textContent = data.url;
+
+      const placeholder = document.getElementById('qr-placeholder');
+      const img = document.getElementById('qr-img');
+      placeholder.style.display = 'none';
+      img.src = data.qr;
+      img.style.display = 'block';
+
+      const robotEl = document.getElementById('robot-status');
+      if (data.robotjs) {
+        robotEl.innerHTML = '<div class="robot-badge active">✓ SYSTEM KEY MODE ACTIVE</div>';
+      } else {
+        robotEl.innerHTML = '<div class="robot-badge inactive">⚠ BROWSER MODE (robotjs optional)</div>';
+      }
+    } catch (e) {
+      document.getElementById('ip-display').textContent = 'Error connecting to server';
+    }
+  }
+  init();
+</script>
+</body>
+              </html>
