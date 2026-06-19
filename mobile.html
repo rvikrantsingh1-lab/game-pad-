@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>GamePad — Controller</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #050508;
+    --bg2: #0d0d18;
+    --neon: #00ff88;
+    --neon2: #00aaff;
+    --red: #ff2255;
+    --gold: #ffcc00;
+    --yellow: #ffee00;
+    --purple: #cc44ff;
+    --btn-bg: #14141f;
+    --btn-border: rgba(255,255,255,0.1);
+    --glow-g: rgba(0,255,136,0.6);
+    --glow-b: rgba(0,170,255,0.6);
+    --glow-r: rgba(255,34,85,0.6);
+    --glow-y: rgba(255,204,0,0.6);
+  }
+
+  html, body {
+    width: 100%; height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: #fff;
+    font-family: 'Rajdhani', sans-serif;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Force landscape */
+  #rotate-msg {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    font-family: 'Orbitron', monospace;
+    color: var(--neon);
+    font-size: 1rem;
+    letter-spacing: 3px;
+    text-align: center;
+  }
+
+  .rotate-icon { font-size: 3rem; animation: rotateAnim 2s ease-in-out infinite; }
+  @keyframes rotateAnim { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(90deg); } }
+
+  @media (orientation: portrait) {
+    #rotate-msg { display: flex; }
+    #controller { display: none; }
+  }
+
+  /* Scanline overlay */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px);
+    pointer-events: none;
+    z-index: 50;
+  }
+
+  #controller {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    padding: env(safe-area-inset-top, 8px) env(safe-area-inset-right, 8px) env(safe-area-inset-bottom, 8px) env(safe-area-inset-left, 8px);
+    gap: 4px;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(0,255,136,0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 50%, rgba(0,170,255,0.04) 0%, transparent 50%),
+      var(--bg);
+  }
+
+  /* ── TOP ROW: Shoulder buttons ── */
+  .shoulder-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 4px;
+  }
+
+  .shoulder-group {
+    display: flex;
+    gap: 6px;
+  }
+
+  .shoulder-btn {
+    min-width: 70px;
+    height: 38px;
+    background: var(--btn-bg);
+    border: 1px solid var(--btn-border);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #888;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.05s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .shoulder-btn.lt, .shoulder-btn.rt {
+    background: linear-gradient(180deg, #1a1a2e, #0d0d18);
+    border-bottom: 3px solid rgba(255,255,255,0.1);
+    height: 44px;
+  }
+
+  .shoulder-btn:active, .shoulder-btn.pressed {
+    background: rgba(0,255,136,0.15);
+    border-color: var(--neon);
+    color: var(--neon);
+    box-shadow: 0 0 12px rgba(0,255,136,0.4), inset 0 0 8px rgba(0,255,136,0.1);
+    transform: translateY(1px);
+  }
+
+  .shoulder-btn.lt.pressed, .shoulder-btn.rt.pressed {
+    background: rgba(255,204,0,0.15);
+    border-color: var(--gold);
+    color: var(--gold);
+    box-shadow: 0 0 12px rgba(255,204,0,0.4);
+  }
+
+  /* ── MIDDLE ROW ── */
+  .middle-row {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 6px;
+    align-items: center;
+  }
+
+  /* ── D-PAD ── */
+  .dpad-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dpad {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    flex-shrink: 0;
+  }
+
+  .dpad-btn {
+    position: absolute;
+    background: var(--btn-bg);
+    border: 1px solid var(--btn-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: background 0.05s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .dpad-btn.pressed {
+    background: rgba(0,255,136,0.2);
+    border-color: var(--neon);
+    box-shadow: 0 0 15px rgba(0,255,136,0.5);
+  }
+
+  .dpad-up    { top: 0;    left: 50%; transform: translateX(-50%); width: 46px; height: 46px; border-radius: 6px 6px 0 0; }
+  .dpad-down  { bottom: 0; left: 50%; transform: translateX(-50%); width: 46px; height: 46px; border-radius: 0 0 6px 6px; }
+  .dpad-left  { left: 0;   top: 50%; transform: translateY(-50%); width: 46px; height: 46px; border-radius: 6px 0 0 6px; }
+  .dpad-right { right: 0;  top: 50%; transform: translateY(-50%); width: 46px; height: 46px; border-radius: 0 6px 6px 0; }
+
+  /* Center cross piece */
+  .dpad-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 46px; height: 46px;
+    background: var(--btn-bg);
+    border: 1px solid var(--btn-border);
+    border-radius: 4px;
+    pointer-events: none;
+  }
+
+  /* ── CENTER PANEL ── */
+  .center-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px;
+  }
+
+  .center-top {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .small-btn {
+    width: 38px; height: 22px;
+    background: var(--btn-bg);
+    border: 1px solid var(--btn-border);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 1px;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.05s;
+  }
+
+  .small-btn.pressed {
+    background: rgba(0,170,255,0.2);
+    border-color: var(--neon2);
+    color: var(--neon2);
+    box-shadow: 0 0 10px rgba(0,170,255,0.4);
+  }
+
+  .mode-btn {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, #1a0a2e, #0d0d18);
+    border: 1px solid rgba(204,68,255,0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(204,68,255,0.2);
+    transition: all 0.1s;
+  }
+
+  .mode-btn.pressed {
+    box-shadow: 0 0 20px rgba(204,68,255,0.6);
+    border-color: var(--purple);
+  }
+
+  /* Connection status */
+  .conn-status {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 2px;
+    color: var(--dim, #555);
+  }
+
+  .conn-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #333;
+    transition: all 0.3s;
+  }
+
+  .conn-dot.connected { background: var(--neon); box-shadow: 0 0 8px var(--neon); animation: blink 1.5s ease infinite; }
+  .conn-dot.connecting { background: var(--gold); box-shadow: 0 0 8px var(--gold); animation: blink 0.5s ease infinite; }
+  .conn-dot.disconnected { background: var(--red); }
+
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  /* ── FACE BUTTONS (ABXY) ── */
+  .face-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .face-btns {
+    position: relative;
+    width: 150px;
+    height: 150px;
+  }
+
+  .face-btn {
+    position: absolute;
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    border: 2px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.05s;
+    -webkit-tap-highlight-color: transparent;
+    background: var(--btn-bg);
+  }
+
+  /* ABXY positions (diamond) */
+  .btn-a { bottom: 2px; left: 50%; transform: translateX(-50%); border-color: rgba(0,255,136,0.4); color: var(--neon); }
+  .btn-b { right: 2px;  top: 50%;  transform: translateY(-50%); border-color: rgba(255,34,85,0.4); color: var(--red); }
+  .btn-x { left: 2px;   top: 50%;  transform: translateY(-50%); border-color: rgba(0,170,255,0.4); color: var(--neon2); }
+  .btn-y { top: 2px;    left: 50%; transform: translateX(-50%); border-color: rgba(255,204,0,0.4); color: var(--gold); }
+
+  .btn-a.pressed { background: rgba(0,255,136,0.25); border-color: var(--neon); box-shadow: 0 0 20px rgba(0,255,136,0.6); transform: translateX(-50%) scale(0.92); }
+  .btn-b.pressed { background: rgba(255,34,85,0.25);  border-color: var(--red);  box-shadow: 0 0 20px rgba(255,34,85,0.6);  transform: translateY(-50%) scale(0.92); }
+  .btn-x.pressed { background: rgba(0,170,255,0.25); border-color: var(--neon2); box-shadow: 0 0 20px rgba(0,170,255,0.6); transform: translateY(-50%) scale(0.92); }
+  .btn-y.pressed { background: rgba(255,204,0,0.25);  border-color: var(--gold);  box-shadow: 0 0 20px rgba(255,204,0,0.6);  transform: translateX(-50%) scale(0.92); }
+
+  /* ── BOTTOM ROW: Analog Sticks ── */
+  .stick-row {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0 60px;
+    gap: 20px;
+  }
+
+  .stick-zone {
+    position: relative;
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    background: var(--btn-bg);
+    border: 2px solid var(--btn-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .stick-label {
+    position: absolute;
+    top: -22px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 2px;
+    color: #444;
+    text-align: center;
+  }
+
+  .stick-knob {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #3a3a5a, #1a1a2e);
+    border: 2px solid rgba(255,255,255,0.15);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+    pointer-events: none;
+    transition: box-shadow 0.1s;
+    will-change: transform;
+  }
+
+  .stick-zone.active .stick-knob {
+    box-shadow: 0 0 15px rgba(0,255,136,0.4), 0 3px 8px rgba(0,0,0,0.5);
+  }
+
+  .stick-zone.active {
+    border-color: rgba(0,255,136,0.3);
+  }
+
+  /* Ping display */
+  .ping-display {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 1px;
+    color: var(--neon);
+    text-align: center;
+  }
+
+  /* Latency indicator */
+  .latency {
+    position: fixed;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    border: 1px solid rgba(0,255,136,0.2);
+    border-radius: 20px;
+    padding: 3px 12px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 1px;
+    color: var(--neon);
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .latency-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--neon); }
+</style>
+</head>
+<body>
+
+<div id="rotate-msg">
+  <div class="rotate-icon">📱</div>
+  <div>ROTATE TO LANDSCAPE</div>
+  <div style="font-size:0.6rem;color:#555;letter-spacing:2px;margin-top:8px">FOR BEST EXPERIENCE</div>
+</div>
+
+<div id="controller">
+  <!-- Latency -->
+  <div class="latency">
+    <div class="latency-dot" id="lat-dot"></div>
+    <span id="lat-text">--ms</span>
+  </div>
+
+  <!-- TOP: Shoulder buttons -->
+  <div class="shoulder-row">
+    <div class="shoulder-group">
+      <div class="shoulder-btn lt" data-btn="btn_lt" id="btn_lt">LT</div>
+      <div class="shoulder-btn lb" data-btn="btn_lb" id="btn_lb">LB</div>
+    </div>
+    <div class="shoulder-group">
+      <div class="shoulder-btn rb" data-btn="btn_rb" id="btn_rb">RB</div>
+      <div class="shoulder-btn rt" data-btn="btn_rt" id="btn_rt">RT</div>
+    </div>
+  </div>
+
+  <!-- MIDDLE: D-pad + Center + Face buttons -->
+  <div class="middle-row">
+    <!-- D-PAD -->
+    <div class="dpad-wrap">
+      <div class="dpad" id="dpad">
+        <div class="dpad-btn dpad-up"    data-btn="dpad_up">▲</div>
+        <div class="dpad-btn dpad-down"  data-btn="dpad_down">▼</div>
+        <div class="dpad-btn dpad-left"  data-btn="dpad_left">◀</div>
+        <div class="dpad-btn dpad-right" data-btn="dpad_right">▶</div>
+        <div class="dpad-center"></div>
+      </div>
+    </div>
+
+    <!-- CENTER -->
+    <div class="center-panel">
+      <div class="center-top">
+        <div class="small-btn" data-btn="btn_select" id="btn_select">SEL</div>
+        <div class="mode-btn" data-btn="btn_mode" id="btn_mode">🎮</div>
+        <div class="small-btn" data-btn="btn_start" id="btn_start">STA</div>
+      </div>
+      <div class="conn-status">
+        <div class="conn-dot" id="conn-dot"></div>
+        <span id="conn-label">OFFLINE</span>
+      </div>
+      <div class="ping-display" id="ping-display">-- ms</div>
+    </div>
+
+    <!-- FACE BUTTONS -->
+    <div class="face-wrap">
+      <div class="face-btns">
+        <div class="face-btn btn-y" data-btn="btn_y">Y</div>
+        <div class="face-btn btn-x" data-btn="btn_x">X</div>
+        <div class="face-btn btn-b" data-btn="btn_b">B</div>
+        <div class="face-btn btn-a" data-btn="btn_a">A</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOTTOM: Analog sticks -->
+  <div class="stick-row">
+    <div class="stick-zone" id="stick-left">
+      <div class="stick-label">L3</div>
+      <div class="stick-knob" id="knob-left"></div>
+    </div>
+    <div class="ping-display" id="fps-display"></div>
+    <div class="stick-zone" id="stick-right">
+      <div class="stick-label">R3</div>
+      <div class="stick-knob" id="knob-right"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── WebSocket Connection ─────────────────────────────────────────────────────
+const WS_URL = `ws://${location.host}`;
+let ws = null;
+let pingStart = 0;
+let latency = 0;
+let reconnectTimer = null;
+let frameCount = 0;
+let lastFpsTime = Date.now();
+let fps = 0;
+
+function connect() {
+  clearTimeout(reconnectTimer);
+  updateStatus('connecting');
+
+  ws = new WebSocket(WS_URL);
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type: 'register', role: 'mobile', room: 'default' }));
+    updateStatus('connected');
+    startPing();
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'pong') {
+        latency = Date.now() - pingStart;
+        document.getElementById('lat-text').textContent = latency + 'ms';
+        document.getElementById('ping-display').textContent = latency + ' ms';
+        const dot = document.getElementById('lat-dot');
+        dot.style.background = latency < 20 ? '#00ff88' : latency < 50 ? '#ffcc00' : '#ff2255';
+      }
+      if (msg.type === 'vibrate') {
+        navigator.vibrate && navigator.vibrate(msg.pattern || 30);
+      }
+      if (msg.type === 'pc_connected') updateStatus('connected');
+    } catch {}
+  };
+
+  ws.onclose = () => {
+    updateStatus('disconnected');
+    reconnectTimer = setTimeout(connect, 2000);
+  };
+
+  ws.onerror = () => { ws.close(); };
+}
+
+function updateStatus(state) {
+  const dot = document.getElementById('conn-dot');
+  const label = document.getElementById('conn-label');
+  dot.className = 'conn-dot ' + state;
+  label.textContent = state.toUpperCase();
+}
+
+let pingInterval;
+function startPing() {
+  clearInterval(pingInterval);
+  pingInterval = setInterval(() => {
+    if (ws?.readyState === WebSocket.OPEN) {
+      pingStart = Date.now();
+      ws.send(JSON.stringify({ type: 'ping' }));
+    }
+  }, 1000);
+}
+
+// ── Send Input ───────────────────────────────────────────────────────────────
+function sendInput(data) {
+  if (ws?.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify(data));
+    frameCount++;
+  }
+}
+
+// FPS counter
+setInterval(() => {
+  const now = Date.now();
+  fps = Math.round(frameCount / ((now - lastFpsTime) / 1000));
+  frameCount = 0;
+  lastFpsTime = now;
+  document.getElementById('fps-display').textContent = fps + ' ev/s';
+}, 1000);
+
+// ── Button Events ─────────────────────────────────────────────────────────────
+const activeButtons = new Map(); // touchId → buttonId
+
+function buttonDown(btnId) {
+  const el = document.getElementById(btnId) || document.querySelector(`[data-btn="${btnId}"]`);
+  if (el) el.classList.add('pressed');
+  sendInput({ type: 'input', b: btnId, s: 1, t: Date.now() });
+  navigator.vibrate && navigator.vibrate(20);
+}
+
+function buttonUp(btnId) {
+  const el = document.getElementById(btnId) || document.querySelector(`[data-btn="${btnId}"]`);
+  if (el) el.classList.remove('pressed');
+  sendInput({ type: 'input', b: btnId, s: 0 });
+}
+
+// Attach events to all buttons
+document.querySelectorAll('[data-btn]').forEach(el => {
+  // Skip stick zones (handled separately)
+  if (el.id === 'stick-left' || el.id === 'stick-right') return;
+
+  el.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const btnId = el.dataset.btn;
+    const touchId = e.changedTouches[0].identifier;
+    activeButtons.set(touchId, btnId);
+    buttonDown(btnId);
+  }, { passive: false });
+
+  el.addEventListener('touchend', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (activeButtons.has(t.identifier)) {
+        const btnId = activeButtons.get(t.identifier);
+        buttonUp(btnId);
+        activeButtons.delete(t.identifier);
+      }
+    }
+  }, { passive: false });
+
+  el.addEventListener('touchcancel', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (activeButtons.has(t.identifier)) {
+        const btnId = activeButtons.get(t.identifier);
+        buttonUp(btnId);
+        activeButtons.delete(t.identifier);
+      }
+    }
+  }, { passive: false });
+});
+
+// ── D-Pad Multi-Touch ────────────────────────────────────────────────────────
+const dpad = document.getElementById('dpad');
+const dpadActive = new Map(); // touchId → [btnIds]
+
+dpad.addEventListener('touchstart', e => {
+  e.preventDefault();
+  for (const touch of e.changedTouches) {
+    const btns = getDpadBtns(touch, dpad);
+    if (btns.length > 0) {
+      dpadActive.set(touch.identifier, btns);
+      btns.forEach(b => buttonDown(b));
+    }
+  }
+}, { passive: false });
+
+dpad.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (const touch of e.changedTouches) {
+    const newBtns = getDpadBtns(touch, dpad);
+    const oldBtns = dpadActive.get(touch.identifier) || [];
+    
+    // Release old buttons not in new set
+    oldBtns.filter(b => !newBtns.includes(b)).forEach(b => buttonUp(b));
+    // Press new buttons not in old set
+    newBtns.filter(b => !oldBtns.includes(b)).forEach(b => buttonDown(b));
+    
+    dpadActive.set(touch.identifier, newBtns);
+  }
+}, { passive: false });
+
+function releaseDpad(e) {
+  e.preventDefault();
+  for (const touch of e.changedTouches) {
+    const btns = dpadActive.get(touch.identifier) || [];
+    btns.forEach(b => buttonUp(b));
+    dpadActive.delete(touch.identifier);
+  }
+}
+dpad.addEventListener('touchend', releaseDpad, { passive: false });
+dpad.addEventListener('touchcancel', releaseDpad, { passive: false });
+
+function getDpadBtns(touch, container) {
+  const rect = container.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const dx = touch.clientX - cx;
+  const dy = touch.clientY - cy;
+  const dist = Math.sqrt(dx*dx + dy*dy);
+  const dead = rect.width * 0.12;
+  if (dist < dead) return [];
+  
+  const btns = [];
+  const threshold = 0.5;
+  if (dy < -dead && Math.abs(dy) > Math.abs(dx) * threshold) btns.push('dpad_up');
+  if (dy > dead  && Math.abs(dy) > Math.abs(dx) * threshold) btns.push('dpad_down');
+  if (dx < -dead && Math.abs(dx) > Math.abs(dy) * threshold) btns.push('dpad_left');
+  if (dx > dead  && Math.abs(dx) > Math.abs(dy) * threshold) btns.push('dpad_right');
+  return btns;
+}
+
+// ── Analog Sticks ────────────────────────────────────────────────────────────
+class Joystick {
+  constructor(zone, knob, side) {
+    this.zone = zone;
+    this.knob = knob;
+    this.side = side;
+    this.touchId = null;
+    this.radius = 0;
+    this.cx = 0; this.cy = 0;
+    this.x = 0; this.y = 0;
+    this.lastX = 0; this.lastY = 0;
+    this.DEAD = 0.18;
+    this.rafId = null;
+
+    zone.addEventListener('touchstart', this.start.bind(this), { passive: false });
+    zone.addEventListener('touchmove', this.move.bind(this), { passive: false });
+    zone.addEventListener('touchend', this.end.bind(this), { passive: false });
+    zone.addEventListener('touchcancel', this.end.bind(this), { passive: false });
+  }
+
+  start(e) {
+    e.preventDefault();
+    if (this.touchId !== null) return;
+    const t = e.changedTouches[0];
+    this.touchId = t.identifier;
+    const r = this.zone.getBoundingClientRect();
+    this.cx = r.left + r.width / 2;
+    this.cy = r.top + r.height / 2;
+    this.radius = r.width * 0.45;
+    this.zone.classList.add('active');
+    
+    // Press L3/R3 on stick click
+    buttonDown(this.side === 'left' ? 'btn_ls' : 'btn_rs');
+    setTimeout(() => buttonUp(this.side === 'left' ? 'btn_ls' : 'btn_rs'), 100);
+    
+    this.process(t);
+  }
+
+  move(e) {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (t.identifier === this.touchId) { this.process(t); break; }
+    }
+  }
+
+  process(touch) {
+    let dx = touch.clientX - this.cx;
+    let dy = touch.clientY - this.cy;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    
+    if (dist > this.radius) {
+      dx = (dx / dist) * this.radius;
+      dy = (dy / dist) * this.radius;
+    }
+
+    // Update knob visual
+    this.knob.style.transform = `translate(${dx}px, ${dy}px)`;
+
+    let nx = dx / this.radius;
+    let ny = dy / this.radius;
+
+    // Deadzone
+    const mag = Math.sqrt(nx*nx + ny*ny);
+    if (mag < this.DEAD) { nx = 0; ny = 0; }
+    else {
+      nx = (nx / mag) * ((mag - this.DEAD) / (1 - this.DEAD));
+      ny = (ny / mag) * ((mag - this.DEAD) / (1 - this.DEAD));
+    }
+
+    nx = Math.round(nx * 100) / 100;
+    ny = Math.round(ny * 100) / 100;
+
+    if (nx !== this.lastX || ny !== this.lastY) {
+      this.lastX = nx; this.lastY = ny;
+      sendInput({ type: 'stick', side: this.side, x: nx, y: ny });
+    }
+  }
+
+  end(e) {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+      if (t.identifier === this.touchId) {
+        this.touchId = null;
+        this.knob.style.transform = 'translate(0px, 0px)';
+        this.zone.classList.remove('active');
+        this.lastX = 0; this.lastY = 0;
+        sendInput({ type: 'stick', side: this.side, x: 0, y: 0 });
+        break;
+      }
+    }
+  }
+}
+
+const leftStick = new Joystick(
+  document.getElementById('stick-left'),
+  document.getElementById('knob-left'),
+  'left'
+);
+
+const rightStick = new Joystick(
+  document.getElementById('stick-right'),
+  document.getElementById('knob-right'),
+  'right'
+);
+
+// Prevent context menu
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+// Start connection
+connect();
+
+// Lock screen awake (if supported)
+if (navigator.wakeLock) {
+  navigator.wakeLock.request('screen').catch(() => {});
+}
+</script>
+</body>
+</html>

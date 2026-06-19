@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GamePad Pro — PC Receiver</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #050508;
+    --bg2: #0d0d14;
+    --bg3: #131320;
+    --neon: #00ff88;
+    --neon2: #00aaff;
+    --red: #ff2255;
+    --gold: #ffcc00;
+    --purple: #cc44ff;
+    --text: #c8c8e0;
+    --dim: #4a4a6a;
+    --border: rgba(0,255,136,0.12);
+  }
+
+  html, body {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Rajdhani', sans-serif;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.025) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 30px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(5,5,8,0.95);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+
+  .logo {
+    font-family: 'Orbitron', monospace;
+    font-size: 1rem;
+    font-weight: 900;
+    color: var(--neon);
+    letter-spacing: 3px;
+    text-shadow: 0 0 20px rgba(0,255,136,0.5);
+  }
+
+  .logo span {
+    color: var(--dim);
+    font-size: 0.7rem;
+    letter-spacing: 4px;
+    margin-left: 10px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .conn-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.1);
+    font-family: 'Orbitron', monospace;
+    font-size: 0.62rem;
+    letter-spacing: 2px;
+    transition: all 0.3s;
+  }
+
+  .conn-badge.connected    { border-color: var(--neon); color: var(--neon); background: rgba(0,255,136,0.08); }
+  .conn-badge.disconnected { border-color: var(--red);  color: var(--red);  background: rgba(255,34,85,0.08); }
+  .conn-badge.waiting      { border-color: var(--gold); color: var(--gold); background: rgba(255,204,0,0.08); }
+
+  .conn-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .conn-badge.connected .conn-dot { animation: blink 1.5s ease infinite; }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+  .latency-pill {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 1px;
+    color: var(--neon);
+    padding: 4px 10px;
+    border: 1px solid rgba(0,255,136,0.2);
+    border-radius: 20px;
+  }
+
+  /* Main layout */
+  main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+    padding: 24px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+  }
+
+  /* Panel */
+  .panel {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  .panel-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 4px;
+    color: var(--neon);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .panel-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Virtual Gamepad Display */
+  .gamepad-viz {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .viz-shoulders {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .viz-group { display: flex; gap: 6px; }
+
+  .viz-btn {
+    padding: 6px 16px;
+    background: var(--bg3);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 6px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 1px;
+    color: var(--dim);
+    transition: all 0.08s;
+    text-align: center;
+    min-width: 50px;
+  }
+
+  .viz-btn.pressed {
+    background: rgba(0,255,136,0.15);
+    border-color: var(--neon);
+    color: var(--neon);
+    box-shadow: 0 0 12px rgba(0,255,136,0.3);
+  }
+
+  .viz-btn.lt.pressed, .viz-btn.rt.pressed {
+    background: rgba(255,204,0,0.15);
+    border-color: var(--gold);
+    color: var(--gold);
+    box-shadow: 0 0 12px rgba(255,204,0,0.3);
+  }
+
+  .viz-middle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    gap: 10px;
+  }
+
+  /* Mini D-pad */
+  .viz-dpad {
+    position: relative;
+    width: 90px; height: 90px;
+    flex-shrink: 0;
+  }
+
+  .viz-dpad-btn {
+    position: absolute;
+    background: var(--bg3);
+    border: 1px solid rgba(255,255,255,0.07);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    color: var(--dim);
+    transition: all 0.08s;
+    border-radius: 3px;
+  }
+
+  .viz-dpad-btn.pressed {
+    background: rgba(0,255,136,0.2);
+    border-color: var(--neon);
+    color: var(--neon);
+    box-shadow: 0 0 8px rgba(0,255,136,0.4);
+  }
+
+  .vd-up    { top:0;    left:50%; transform:translateX(-50%); width:28px; height:28px; border-radius:3px 3px 0 0; }
+  .vd-down  { bottom:0; left:50%; transform:translateX(-50%); width:28px; height:28px; border-radius:0 0 3px 3px; }
+  .vd-left  { left:0;   top:50%;  transform:translateY(-50%); width:28px; height:28px; border-radius:3px 0 0 3px; }
+  .vd-right { right:0;  top:50%;  transform:translateY(-50%); width:28px; height:28px; border-radius:0 3px 3px 0; }
+  .vd-center { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:28px; height:28px; background:var(--bg3); border:1px solid rgba(255,255,255,0.07); border-radius:2px; }
+
+  /* Center buttons */
+  .viz-center { display:flex; gap:6px; align-items:center; }
+
+  .viz-small-btn {
+    width: 36px; height: 18px;
+    background: var(--bg3);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 20px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.45rem;
+    letter-spacing: 1px;
+    color: var(--dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.08s;
+  }
+
+  .viz-small-btn.pressed {
+    background: rgba(0,170,255,0.15);
+    border-color: var(--neon2);
+    color: var(--neon2);
+  }
+
+  /* Face buttons */
+  .viz-face {
+    position: relative;
+    width: 90px; height: 90px;
+    flex-shrink: 0;
+  }
+
+  .viz-face-btn {
+    position: absolute;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    border: 1px solid;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.55rem;
+    font-weight: 700;
+    background: var(--bg3);
+    transition: all 0.08s;
+  }
+
+  .vf-a { bottom:0; left:50%; transform:translateX(-50%); border-color:rgba(0,255,136,0.3); color:rgba(0,255,136,0.5); }
+  .vf-b { right:0; top:50%; transform:translateY(-50%); border-color:rgba(255,34,85,0.3); color:rgba(255,34,85,0.5); }
+  .vf-x { left:0; top:50%; transform:translateY(-50%); border-color:rgba(0,170,255,0.3); color:rgba(0,170,255,0.5); }
+  .vf-y { top:0; left:50%; transform:translateX(-50%); border-color:rgba(255,204,0,0.3); color:rgba(255,204,0,0.5); }
+
+  .vf-a.pressed { background:rgba(0,255,136,0.2); border-color:var(--neon); color:var(--neon); box-shadow:0 0 10px rgba(0,255,136,0.5); }
+  .vf-b.pressed { background:rgba(255,34,85,0.2); border-color:var(--red); color:var(--red); box-shadow:0 0 10px rgba(255,34,85,0.5); }
+  .vf-x.pressed { background:rgba(0,170,255,0.2); border-color:var(--neon2); color:var(--neon2); box-shadow:0 0 10px rgba(0,170,255,0.5); }
+  .vf-y.pressed { background:rgba(255,204,0,0.2); border-color:var(--gold); color:var(--gold); box-shadow:0 0 10px rgba(255,204,0,0.5); }
+
+  /* Stick visualizers */
+  .viz-sticks {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    gap: 20px;
+    padding: 0 20px;
+  }
+
+  .viz-stick {
+    position: relative;
+    width: 70px; height: 70px;
+    border-radius: 50%;
+    background: var(--bg3);
+    border: 1px solid rgba(255,255,255,0.07);
+    flex-shrink: 0;
+  }
+
+  .viz-stick-knob {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #3a3a5a, #1a1a2e);
+    border: 1px solid rgba(255,255,255,0.2);
+    transform: translate(-50%, -50%);
+    transition: transform 0.05s linear;
+    will-change: transform;
+  }
+
+  /* Key log */
+  .key-log {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 60px;
+    align-items: flex-start;
+  }
+
+  .key-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,255,136,0.1);
+    border: 1px solid var(--neon);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 1px;
+    color: var(--neon);
+    animation: popIn 0.1s ease;
+  }
+
+  @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  /* Key Mapping Table */
+  .mapping-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .map-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg3);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 8px;
+    padding: 8px 12px;
+    gap: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .map-row:hover { border-color: var(--border); }
+  .map-row.remap-active { border-color: var(--gold); background: rgba(255,204,0,0.05); }
+
+  .map-btn-name {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 1px;
+    color: var(--dim);
+    min-width: 60px;
+  }
+
+  .map-arrow { color: var(--dim); font-size: 0.7rem; }
+
+  .map-key {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 4px;
+    padding: 2px 8px;
+    min-width: 55px;
+    text-align: center;
+  }
+
+  .map-row.remap-active .map-key {
+    color: var(--gold);
+    border-color: var(--gold);
+    animation: blink 0.5s ease infinite;
+  }
+
+  .map-hint { font-size: 0.65rem; color: var(--dim); margin-top: 8px; text-align: center; }
+
+  /* Stats */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+
+  .stat-card {
+    background: var(--bg3);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--neon);
+    text-shadow: 0 0 15px rgba(0,255,136,0.4);
+    display: block;
+  }
+
+  .stat-label {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.5rem;
+    letter-spacing: 2px;
+    color: var(--dim);
+    margin-top: 4px;
+    display: block;
+  }
+
+  /* Mode toggle */
+  .mode-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .toggle-btn {
+    flex: 1;
+    padding: 8px;
+    background: var(--bg3);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 8px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 1px;
+    color: var(--dim);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.2s;
+  }
+
+  .toggle-btn.active {
+    background: rgba(0,255,136,0.1);
+    border-color: var(--neon);
+    color: var(--neon);
+  }
+
+  /* Log area */
+  .event-log {
+    height: 140px;
+    overflow-y: auto;
+    background: var(--bg3);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 8px;
+    padding: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--dim);
+    line-height: 1.8;
+  }
+
+  .event-log::-webkit-scrollbar { width: 4px; }
+  .event-log::-webkit-scrollbar-track { background: transparent; }
+  .event-log::-webkit-scrollbar-thumb { background: var(--dim); border-radius: 2px; }
+
+  .log-entry { }
+  .log-entry .btn  { color: var(--neon2); }
+  .log-entry .down { color: var(--neon); }
+  .log-entry .up   { color: var(--red); }
+  .log-entry .stick { color: var(--gold); }
+  .log-entry .time  { color: #333; }
+
+  /* Sidebar */
+  .sidebar {}
+
+  /* Robot badge */
+  .robot-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+
+  .robot-status.active   { background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.3); color: var(--neon); }
+  .robot-status.inactive { background: rgba(255,204,0,0.08); border: 1px solid rgba(255,204,0,0.3); color: var(--gold); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">GAMEPAD PRO <span>PC RECEIVER</span></div>
+  </div>
+  <div class="header-right">
+    <div class="latency-pill" id="latency-pill">-- ms</div>
+    <div class="conn-badge waiting" id="conn-badge">
+      <div class="conn-dot"></div>
+      <span id="conn-text">WAITING FOR PHONE</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- Left: Main content -->
+  <div>
+    <!-- Gamepad Visualizer -->
+    <div class="panel">
+      <div class="panel-title">CONTROLLER STATE</div>
+      <div class="gamepad-viz">
+
+        <div class="viz-shoulders">
+          <div class="viz-group">
+            <div class="viz-btn lt" id="v_btn_lt">LT</div>
+            <div class="viz-btn" id="v_btn_lb">LB</div>
+          </div>
+          <div class="viz-group">
+            <div class="viz-btn" id="v_btn_rb">RB</div>
+            <div class="viz-btn rt" id="v_btn_rt">RT</div>
+          </div>
+        </div>
+
+        <div class="viz-middle">
+          <div class="viz-dpad">
+            <div class="viz-dpad-btn vd-up"    id="v_dpad_up">▲</div>
+            <div class="viz-dpad-btn vd-down"  id="v_dpad_down">▼</div>
+            <div class="viz-dpad-btn vd-left"  id="v_dpad_left">◀</div>
+            <div class="viz-dpad-btn vd-right" id="v_dpad_right">▶</div>
+            <div class="vd-center"></div>
+          </div>
+
+          <div class="viz-center">
+            <div class="viz-small-btn" id="v_btn_select">SEL</div>
+            <div class="viz-small-btn" id="v_btn_mode">🎮</div>
+            <div class="viz-small-btn" id="v_btn_start">STA</div>
+          </div>
+
+          <div class="viz-face">
+            <div class="viz-face-btn vf-y" id="v_btn_y">Y</div>
+            <div class="viz-face-btn vf-x" id="v_btn_x">X</div>
+            <div class="viz-face-btn vf-b" id="v_btn_b">B</div>
+            <div class="viz-face-btn vf-a" id="v_btn_a">A</div>
+          </div>
+        </div>
+
+        <div class="viz-sticks">
+          <div class="viz-stick" id="v_stick_left">
+            <div class="viz-stick-knob" id="v_knob_left"></div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-family:'Orbitron',monospace;font-size:0.55rem;color:var(--dim);letter-spacing:2px;">INPUTS/S</div>
+            <div style="font-family:'Orbitron',monospace;font-size:1.8rem;color:var(--neon);text-shadow:0 0 10px rgba(0,255,136,0.4)" id="ips-display">0</div>
+          </div>
+          <div class="viz-stick" id="v_stick_right">
+            <div class="viz-stick-knob" id="v_knob_right"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active keys display -->
+    <div class="panel">
+      <div class="panel-title">ACTIVE KEYS</div>
+      <div class="key-log" id="key-log">
+        <span style="color:var(--dim);font-size:0.8rem;font-family:'Orbitron',monospace;letter-spacing:2px;font-size:0.6rem;">Waiting for input...</span>
+      </div>
+    </div>
+
+    <!-- Event Log -->
+    <div class="panel">
+      <div class="panel-title">EVENT LOG</div>
+      <div class="event-log" id="event-log"></div>
+    </div>
+
+    <!-- Stats -->
+    <div class="panel">
+      <div class="panel-title">STATS</div>
+      <div class="stats-grid">
+        <div class="stat-card"><span class="stat-val" id="stat-lat">--</span><span class="stat-label">LATENCY MS</span></div>
+        <div class="stat-card"><span class="stat-val" id="stat-presses">0</span><span class="stat-label">BUTTON PRESSES</span></div>
+        <div class="stat-card"><span class="stat-val" id="stat-uptime">0s</span><span class="stat-label">SESSION TIME</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: Sidebar -->
+  <div class="sidebar">
+    <!-- Key Mapping -->
+    <div class="panel">
+      <div class="panel-title">KEY MAPPING</div>
+
+      <div id="robot-status-el" class="robot-status inactive">
+        <span>⚡</span><span id="robot-text">BROWSER MODE</span>
+      </div>
+
+      <div class="mode-toggle">
+        <div class="toggle-btn active" id="mode-browser" onclick="setMode('browser')">BROWSER</div>
+        <div class="toggle-btn" id="mode-system" onclick="setMode('system')">SYSTEM</div>
+      </div>
+
+      <div class="mapping-grid" id="mapping-grid"></div>
+      <div class="map-hint">Click any button to remap · Press new key</div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+const keymap = {
+  dpad_up:    { key: 'w',       label: 'W',     code: 'KeyW',       keyCode: 87 },
+  dpad_down:  { key: 's',       label: 'S',     code: 'KeyS',       keyCode: 83 },
+  dpad_left:  { key: 'a',       label: 'A',     code: 'KeyA',       keyCode: 65 },
+  dpad_right: { key: 'd',       label: 'D',     code: 'KeyD',       keyCode: 68 },
+  btn_a:      { key: ' ',       label: 'SPACE', code: 'Space',      keyCode: 32 },
+  btn_b:      { key: 'Escape',  label: 'ESC',   code: 'Escape',     keyCode: 27 },
+  btn_x:      { key: 'f',       label: 'F',     code: 'KeyF',       keyCode: 70 },
+  btn_y:      { key: 'e',       label: 'E',     code: 'KeyE',       keyCode: 69 },
+  btn_lb:     { key: 'q',       label: 'Q',     code: 'KeyQ',       keyCode: 81 },
+  btn_rb:     { key: 'r',       label: 'R',     code: 'KeyR',       keyCode: 82 },
+  btn_lt:     { key: 'Shift',   label: 'SHIFT', code: 'ShiftLeft',  keyCode: 16 },
+  btn_rt:     { key: 'Control', label: 'CTRL',  code: 'ControlLeft',keyCode: 17 },
+  btn_start:  { key: 'Enter',   label: 'ENTER', code: 'Enter',      keyCode: 13 },
+  btn_select: { key: 'Tab',     label: 'TAB',   code: 'Tab',        keyCode: 9  },
+  btn_ls:     { key: 'z',       label: 'Z',     code: 'KeyZ',       keyCode: 90 },
+  btn_rs:     { key: 'x',       label: 'X',     code: 'KeyX',       keyCode: 88 },
+};
+
+const pressed = new Set();
+const activeChips = new Map();
+let totalPresses = 0;
+let inputsPerSec = 0;
+let inputCount = 0;
+let sessionStart = Date.now();
+let robotjsAvailable = false;
+let mode = 'browser'; // 'browser' | 'system'
+let remapTarget = null;
+let latency = 0;
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+const WS_URL = `ws://${location.host}`;
+let ws, pingStart, pingTimer, reconnTimer;
+
+function connect() {
+  clearTimeout(reconnTimer);
+  setConnBadge('waiting', 'WAITING FOR PHONE');
+
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type: 'register', role: 'pc', room: 'default' }));
+    setConnBadge('waiting', 'WAITING FOR PHONE');
+    startPing();
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+
+      if (msg.type === 'registered') {
+        robotjsAvailable = msg.robotjs;
+        updateRobotStatus();
+        if (msg.keymap) applyServerKeymap(msg.keymap);
+        return;
+      }
+
+      if (msg.type === 'mobile_connected') {
+        setConnBadge('connected', 'PHONE CONNECTED');
+        return;
+      }
+
+      if (msg.type === 'mobile_disconnected') {
+        setConnBadge('waiting', 'WAITING FOR PHONE');
+        return;
+      }
+
+      if (msg.type === 'pong') {
+        latency = Date.now() - pingStart;
+        document.getElementById('latency-pill').textContent = latency + ' ms';
+        document.getElementById('stat-lat').textContent = latency;
+        return;
+      }
+
+      if (msg.type === 'ping') {
+        ws.send(JSON.stringify({ type: 'pong' }));
+        return;
+      }
+
+      if (msg.type === 'input') {
+        handleInput(msg);
+        return;
+      }
+
+      if (msg.type === 'stick') {
+        handleStick(msg);
+        return;
+      }
+    } catch {}
+  };
+
+  ws.onclose = () => {
+    setConnBadge('waiting', 'DISCONNECTED');
+    clearInterval(pingTimer);
+    reconnTimer = setTimeout(connect, 2000);
+  };
+
+  ws.onerror = () => ws.close();
+}
+
+function startPing() {
+  clearInterval(pingTimer);
+  pingTimer = setInterval(() => {
+    if (ws?.readyState === WebSocket.OPEN) {
+      pingStart = Date.now();
+      ws.send(JSON.stringify({ type: 'ping' }));
+    }
+  }, 1000);
+}
+
+// ── Handle Input ──────────────────────────────────────────────────────────────
+function handleInput(msg) {
+  const { b, s } = msg;
+  const isDown = s === 1;
+
+  inputCount++;
+  if (isDown) totalPresses++;
+  document.getElementById('stat-presses').textContent = totalPresses;
+
+  // Visual
+  const vizEl = document.getElementById('v_' + b);
+  if (vizEl) vizEl.classList.toggle('pressed', isDown);
+
+  // Key simulation
+  const km = keymap[b];
+  if (km) {
+    if (mode === 'browser') {
+      simulateBrowserKey(km, isDown);
+    } else if (mode === 'system' && robotjsAvailable) {
+      fetch('/api/key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: km.key, state: isDown ? 'down' : 'up' })
+      }).catch(() => {});
+    }
+
+    // Active key chips
+    if (isDown) {
+      if (!activeChips.has(b)) {
+        addChip(b, km.label);
+        pressed.add(b);
+      }
+    } else {
+      removeChip(b);
+      pressed.delete(b);
+    }
+  }
+
+  // Log
+  logEvent(b, isDown ? 'DOWN' : 'UP', km?.label || b);
+}
+
+function handleStick(msg) {
+  const { side, x, y } = msg;
+  inputCount++;
+
+  const radius = 25; // knob travel in px
+  const knob = document.getElementById('v_knob_' + side);
+  if (knob) {
+    const ox = x * radius;
+    const oy = y * radius;
+    knob.style.transform = `translate(calc(-50% + ${ox}px), calc(-50% + ${oy}px))`;
+  }
+
+  // Left stick → WASD simulation
+  if (side === 'left') {
+    const THRESHOLD = 0.5;
+    simulateStickKey('dpad_up',    y < -THRESHOLD);
+    simulateStickKey('dpad_down',  y > THRESHOLD);
+    simulateStickKey('dpad_left',  x < -THRESHOLD);
+    simulateStickKey('dpad_right', x > THRESHOLD);
+  }
+}
+
+const stickKeyState = {};
+function simulateStickKey(btnId, isDown) {
+  if (stickKeyState[btnId] === isDown) return;
+  stickKeyState[btnId] = isDown;
+  handleInput({ b: btnId, s: isDown ? 1 : 0 });
+}
+
+// ── Browser Key Simulation ────────────────────────────────────────────────────
+function simulateBrowserKey(km, isDown) {
+  const type = isDown ? 'keydown' : 'keyup';
+  const ev = new KeyboardEvent(type, {
+    key: km.key,
+    code: km.code,
+    keyCode: km.keyCode,
+    which: km.keyCode,
+    bubbles: true,
+    cancelable: true,
+  });
+  document.dispatchEvent(ev);
+  window.dispatchEvent(ev);
+  if (document.activeElement) document.activeElement.dispatchEvent(ev);
+}
+
+// ── Key Chips (active keys display) ──────────────────────────────────────────
+function addChip(btnId, label) {
+  const log = document.getElementById('key-log');
+  
+  // Clear placeholder
+  const placeholder = log.querySelector('span[style]');
+  if (placeholder) placeholder.remove();
+
+  const chip = document.createElement('div');
+  chip.className = 'key-chip';
+  chip.id = 'chip_' + btnId;
+  chip.innerHTML = `<span>⌨</span><span>${label}</span>`;
+  log.appendChild(chip);
+  activeChips.set(btnId, chip);
+}
+
+function removeChip(btnId) {
+  const chip = activeChips.get(btnId);
+  if (chip) {
+    chip.style.opacity = '0';
+    chip.style.transform = 'scale(0.8)';
+    chip.style.transition = 'all 0.1s';
+    setTimeout(() => chip.remove(), 100);
+    activeChips.delete(btnId);
+  }
+
+  if (activeChips.size === 0) {
+    const log = document.getElementById('key-log');
+    if (!log.querySelector('.key-chip')) {
+      log.innerHTML = '<span style="color:var(--dim);font-family:\'Orbitron\',monospace;font-size:0.6rem;letter-spacing:2px;">Waiting for input...</span>';
+    }
+  }
+}
+
+// ── Event Log ─────────────────────────────────────────────────────────────────
+const MAX_LOG = 50;
+function logEvent(btn, state, label) {
+  const log = document.getElementById('event-log');
+  const time = new Date().toISOString().slice(11,19);
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `<span class="time">[${time}]</span> <span class="btn">${btn}</span> → <span class="${state === 'DOWN' ? 'down' : 'up'}">${state}</span> <span class="time">(${label})</span>`;
+  log.appendChild(entry);
+  if (log.children.length > MAX_LOG) log.firstChild.remove();
+  log.scrollTop = log.scrollHeight;
+}
+
+// ── UI Helpers ────────────────────────────────────────────────────────────────
+function setConnBadge(state, text) {
+  const badge = document.getElementById('conn-badge');
+  badge.className = 'conn-badge ' + state;
+  document.getElementById('conn-text').textContent = text;
+}
+
+function updateRobotStatus() {
+  const el = document.getElementById('robot-status-el');
+  const txt = document.getElementById('robot-text');
+  if (robotjsAvailable) {
+    el.className = 'robot-status active';
+    txt.textContent = 'SYSTEM KEY MODE';
+    document.getElementById('mode-system').style.opacity = '1';
+  } else {
+    el.className = 'robot-status inactive';
+    txt.textContent = 'BROWSER MODE ONLY';
+    document.getElementById('mode-system').style.opacity = '0.4';
+  }
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('mode-browser').classList.toggle('active', m === 'browser');
+  document.getElementById('mode-system').classList.toggle('active', m === 'system');
+}
+
+// ── Key Mapping UI ────────────────────────────────────────────────────────────
+function buildMappingGrid() {
+  const grid = document.getElementById('mapping-grid');
+  grid.innerHTML = '';
+
+  for (const [btnId, km] of Object.entries(keymap)) {
+    const row = document.createElement('div');
+    row.className = 'map-row';
+    row.id = 'maprow_' + btnId;
+    row.innerHTML = `
+      <span class="map-btn-name">${btnId.replace('_', ' ').toUpperCase()}</span>
+      <span class="map-arrow">→</span>
+      <span class="map-key" id="mapkey_${btnId}">${km.label}</span>
+    `;
+    row.addEventListener('click', () => startRemap(btnId));
+    grid.appendChild(row);
+  }
+}
+
+function startRemap(btnId) {
+  if (remapTarget) cancelRemap(remapTarget);
+  remapTarget = btnId;
+  document.getElementById('maprow_' + btnId)?.classList.add('remap-active');
+}
+
+function cancelRemap(btnId) {
+  document.getElementById('maprow_' + btnId)?.classList.remove('remap-active');
+  if (remapTarget === btnId) remapTarget = null;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!remapTarget) return;
+  e.preventDefault();
+
+  const btnId = remapTarget;
+  const label = e.key === ' ' ? 'SPACE' : e.key.length === 1 ? e.key.toUpperCase() : e.key.toUpperCase();
+  keymap[btnId] = { key: e.key, label, code: e.code, keyCode: e.keyCode };
+
+  const keyEl = document.getElementById('mapkey_' + btnId);
+  if (keyEl) keyEl.textContent = label;
+  cancelRemap(btnId);
+
+  // Sync with server
+  if (ws?.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'update_keymap', keymap }));
+  }
+});
+
+function applyServerKeymap(serverMap) {
+  for (const [btnId, val] of Object.entries(serverMap)) {
+    if (keymap[btnId]) {
+      keymap[btnId].key = val.key;
+      keymap[btnId].label = val.label;
+    }
+  }
+  buildMappingGrid();
+}
+
+// ── Stats Timer ───────────────────────────────────────────────────────────────
+setInterval(() => {
+  inputsPerSec = inputCount;
+  inputCount = 0;
+  document.getElementById('ips-display').textContent = inputsPerSec;
+
+  const elapsed = Math.floor((Date.now() - sessionStart) / 1000);
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+  document.getElementById('stat-uptime').textContent = m > 0 ? `${m}m${s}s` : `${s}s`;
+}, 1000);
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+buildMappingGrid();
+connect();
+
+// Load server info
+fetch('/api/info').then(r => r.json()).then(data => {
+  robotjsAvailable = data.robotjs;
+  updateRobotStatus();
+  if (data.keymap) applyServerKeymap(data.keymap);
+}).catch(() => {});
+</script>
+</body>
+</html>
